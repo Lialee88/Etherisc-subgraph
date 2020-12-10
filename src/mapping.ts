@@ -1,83 +1,102 @@
-import { BigInt } from "@graphprotocol/graph-ts"
-import {
-  DipToken,
-  Mint,
-  MintFinished,
-  Pause,
-  Unpause,
-  OwnershipTransferred,
-  Approval,
-  Transfer
-} from "../generated/DipToken/DipToken"
-import { ExampleEntity } from "../generated/schema"
+import { BigDecimal, BigInt } from "@graphprotocol/graph-ts";
+import { DipToken, Transfer } from "../generated/DipToken/DipToken";
+import { DIPToken, Transaction, WalletBalance } from "../generated/schema";
+import { toDecimal, toDecimalExponent } from "./utils";
 
-export function handleMint(event: Mint): void {
-  // Entities can be loaded from the store using a string ID; this ID
-  // needs to be unique across all entities of the same type
-  let entity = ExampleEntity.load(event.transaction.from.toHex())
+export function handleTransfer(event: Transfer): void {
+	let contract = DipToken.bind(event.address);
+	let totalSupply: BigDecimal;
+  let tokenAddress = event.address.toHex();
+  
+	let fromAddress = event.params.from.toHex();
+	let toAddress = event.params.to.toHex();
 
-  // Entities only exist after they have been saved to the store;
-  // `null` checks allow to create entities on demand
-  if (entity == null) {
-    entity = new ExampleEntity(event.transaction.from.toHex())
+	let totalSupplyContract = contract.totalSupply();
+	let decimals = contract.decimals();
+	let decimalsTotal = toDecimalExponent(decimals);
+	let decimalTotalSupply = toDecimal(totalSupplyContract, decimalsTotal);
+	totalSupply = decimalTotalSupply;
+	let transferAmount = toDecimal(event.params.value, decimalsTotal);
+	let timestamp = event.block.timestamp;
 
-    // Entity fields can be set using simple assignments
-    entity.count = BigInt.fromI32(0)
-  }
+	let token = DIPToken.load(tokenAddress);
+	let transferId = event.transaction.hash.toHex();
 
-  // BigInt and BigDecimal math are supported
-  entity.count = entity.count + BigInt.fromI32(1)
+	if (!token) {
+    if (tokenAddress == '0xc719d010b63e5bbf2c0551872cd5316ed26acd83') {
+      let tokenSymbol = 'DIP'
+      let tokenName = 'Decentralized Insurance Protocol'
+      initToken(tokenAddress, tokenSymbol, tokenName, totalSupply, token);
+    }
+	}
 
-  // Entity fields can be set based on event parameters
-  entity.to = event.params.to
-  entity.amount = event.params.amount
+	recordTransaction(
+		transferId,
+		fromAddress,
+		toAddress,
+		transferAmount,
+		timestamp
+	);
 
-  // Entities can be written to the store with `.save()`
-  entity.save()
-
-  // Note: If a handler doesn't require existing field values, it is faster
-  // _not_ to load the entity from the store. Instead, create it fresh with
-  // `new Entity(...)`, set the fields that should be updated and save the
-  // entity back to the store. Fields that were not set or unset remain
-  // unchanged, allowing for partial updates to be applied.
-
-  // It is also possible to access smart contracts from mappings. For
-  // example, the contract that has emitted the event can be connected to
-  // with:
-  //
-  // let contract = Contract.bind(event.address)
-  //
-  // The following functions can then be called on this contract to access
-  // state variables and other data:
-  //
-  // - contract.mintingFinished(...)
-  // - contract.name(...)
-  // - contract.approve(...)
-  // - contract.totalSupply(...)
-  // - contract.transferFrom(...)
-  // - contract.decimals(...)
-  // - contract.MAXIMUM_SUPPLY(...)
-  // - contract.mint(...)
-  // - contract.paused(...)
-  // - contract.decreaseApproval(...)
-  // - contract.balanceOf(...)
-  // - contract.finishMinting(...)
-  // - contract.owner(...)
-  // - contract.symbol(...)
-  // - contract.transfer(...)
-  // - contract.increaseApproval(...)
-  // - contract.allowance(...)
-  // - contract.DipTokensale(...)
+	recordBalance(fromAddress, toAddress, transferAmount);
 }
 
-export function handleMintFinished(event: MintFinished): void {}
+function initToken(
+  address: string,
+  symbol: string,
+  name: string,
+	totalSupply: BigDecimal,
+	token: DIPToken | null
+): void {
+	token = new DIPToken(address);
+  token.symbol = symbol.toString();
+  token.name = name.toString();
+  token.totalSupply = totalSupply;
+	token.save();
+}
 
-export function handlePause(event: Pause): void {}
+function initBalance(address: string): void {
+	let balance = WalletBalance.load(address);
+	if (balance === null && !address.startsWith("0x000000")) {
+		balance = new WalletBalance(address);
+		balance.amount = BigDecimal.fromString("0");
+		balance.save();
+	}
+}
 
-export function handleUnpause(event: Unpause): void {}
+function recordTransaction(
+	transferId: string,
+	fromAddress: string,
+	toAddress: string,
+	transferAmount: BigDecimal,
+	timestamp: BigInt
+): void {
+	let transaction = new Transaction(transferId);
+	transaction.from_address = fromAddress;
+	transaction.to_address = toAddress;
+	transaction.amount = transferAmount;
+	transaction.timestamp = timestamp;
+	transaction.save();
+}
 
-export function handleOwnershipTransferred(event: OwnershipTransferred): void {}
+function recordBalance(
+	fromAddress: string,
+	toAddress: string,
+	transferAmount: BigDecimal
+): void {
+	initBalance(fromAddress);
+	initBalance(toAddress);
 
-export function handleApproval(event: Approval): void {}
+	let fromBalance = WalletBalance.load(fromAddress);
+	let toBalance = WalletBalance.load(toAddress);
 
-export function handleTransfer(event: Transfer): void {}
+	if (fromBalance !== null) {
+		fromBalance.amount = fromBalance.amount.minus(transferAmount);
+		fromBalance.save();
+	}
+	if (toBalance !== null) {
+		toBalance.amount = toBalance.amount.plus(transferAmount);
+		toBalance.save();
+	}
+}
+

@@ -1,41 +1,26 @@
-specVersion: 0.0.1
+specVersion: 0.0.2
+description: Etherisc (DIP)
+# repository: 
 schema:
-  file: ./schema.graphql
+    file: ./schema.graphql
 dataSources:
-  - kind: ethereum/contract
-    name: DipToken
-    network: mainnet
-    source:
-      address: "0xc719d010b63e5bbf2c0551872cd5316ed26acd83"
-      abi: DipToken
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.2
-      language: wasm/assemblyscript
-      entities:
-        - Mint
-        - MintFinished
-        - Pause
-        - Unpause
-        - OwnershipTransferred
-        - Approval
-        - Transfer
-      abis:
-        - name: DipToken
-          file: ./abis/DipToken.json
-      eventHandlers:
-        - event: Mint(indexed address,uint256)
-          handler: handleMint
-        - event: MintFinished()
-          handler: handleMintFinished
-        - event: Pause()
-          handler: handlePause
-        - event: Unpause()
-          handler: handleUnpause
-        - event: OwnershipTransferred(indexed address,indexed address)
-          handler: handleOwnershipTransferred
-        - event: Approval(indexed address,indexed address,uint256)
-          handler: handleApproval
-        - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleTransfer
-      file: ./src/mapping.ts
+    - kind: ethereum/contract
+      name: DipToken
+      network: mainnet
+      source:
+          address: "0xc719d010b63e5bbf2c0551872cd5316ed26acd83"
+          abi: DipToken
+          startBlock: 5835266
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.4
+          language: wasm/assemblyscript
+          entities:
+              - Token
+          abis:
+              - name: DipToken
+                file: ./abis/DipToken.json
+          eventHandlers:
+              - event: Transfer(indexed address,indexed address,uint256)
+                handler: handleTransfer
+          file: ./src/mapping.ts

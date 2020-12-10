@@ -1,6 +1,19 @@
-type ExampleEntity @entity {
-  id: ID!
-  count: BigInt!
-  to: Bytes! # address
-  amount: BigInt! # uint256
+type DIPToken @entity {
+	id: ID!
+  symbol: String!
+  name: String!
+  totalSupply: BigDecimal!
+}
+
+type Transaction @entity {
+	id: ID!
+	from_address: String!
+	to_address: String!
+	amount: BigDecimal!
+	timestamp: BigInt!
+}
+
+type WalletBalance @entity {
+	id: ID!
+	amount: BigDecimal!
 }
